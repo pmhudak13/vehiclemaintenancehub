@@ -1,0 +1,147 @@
+import React, { useState, useEffect } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { QrCode, Link2, Copy, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
+import { toast } from "sonner";
+
+export default function TransferDialog({ open, onClose, vehicle, transferCode, onCreateTransfer, userTier = 'free' }) {
+  const [creating, setCreating] = useState(false);
+  const [copied, setCopied] = useState(false);
+  
+  const transferUrl = transferCode 
+    ? `${window.location.origin}/ReceiveTransfer?code=${transferCode}`
+    : null;
+
+  const handleCreateTransfer = async () => {
+    setCreating(true);
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    await onCreateTransfer(code);
+    setCreating(false);
+  };
+
+  const copyToClipboard = async () => {
+    if (transferUrl) {
+      await navigator.clipboard.writeText(transferUrl);
+      setCopied(true);
+      toast.success("Link copied to clipboard!");
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Transfer Vehicle</DialogTitle>
+          <DialogDescription>
+            Transfer your {vehicle?.year} {vehicle?.make} {vehicle?.model} to a new owner
+          </DialogDescription>
+        </DialogHeader>
+
+        {!transferCode ? (
+          <div className="py-6">
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium text-amber-800">Important</p>
+                  <p className="text-sm text-amber-700 mt-1">
+                    Once transferred, you will lose access to this vehicle and all its maintenance history. 
+                    The new owner will receive full access.
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <Button 
+              onClick={handleCreateTransfer}
+              disabled={creating}
+              className="w-full bg-blue-600 hover:bg-blue-700"
+            >
+              {creating ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Creating Transfer...
+                </>
+              ) : (
+                "Generate Transfer Link"
+              )}
+            </Button>
+          </div>
+        ) : (
+          <div className="py-4">
+            <Tabs defaultValue="link" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="link">
+                  <Link2 className="w-4 h-4 mr-2" />
+                  Link
+                </TabsTrigger>
+                <TabsTrigger value="qr">
+                  <QrCode className="w-4 h-4 mr-2" />
+                  QR Code
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="link" className="space-y-4 pt-4">
+                <div className="space-y-2">
+                  <Label>Transfer Link</Label>
+                  <div className="flex gap-2">
+                    <Input 
+                      value={transferUrl || ""} 
+                      readOnly 
+                      className="font-mono text-sm"
+                    />
+                    <Button 
+                      variant="outline" 
+                      onClick={copyToClipboard}
+                      className="flex-shrink-0"
+                    >
+                      {copied ? (
+                        <CheckCircle2 className="w-4 h-4 text-green-600" />
+                      ) : (
+                        <Copy className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                   Share this link with the new owner. The link expires in 72 hours.
+                  </p>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="qr" className="pt-4">
+                <div className="flex flex-col items-center">
+                  <div className="bg-white p-4 rounded-xl border shadow-sm">
+                    <img 
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(transferUrl)}`}
+                      alt="Transfer QR Code"
+                      className="w-48 h-48"
+                    />
+                  </div>
+                  <p className="text-sm text-slate-500 mt-4 text-center">
+                    Have the new owner scan this QR code to receive the vehicle
+                  </p>
+                </div>
+              </TabsContent>
+            </Tabs>
+
+            <div className="bg-green-50 border border-green-200 rounded-xl p-4 mt-6">
+              <div className="flex items-start gap-3">
+                <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium text-green-800">Transfer Created</p>
+                  <p className="text-sm text-green-700 mt-1">
+                    Transfer code: <span className="font-mono">{transferCode}</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}

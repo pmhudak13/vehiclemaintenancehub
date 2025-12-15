@@ -1,0 +1,97 @@
+{
+  "name": "Appointment",
+  "type": "object",
+  "properties": {
+    "vehicle_id": {
+      "type": "string",
+      "description": "Reference to vehicle"
+    },
+    "mechanic_id": {
+      "type": "string",
+      "description": "Assigned mechanic"
+    },
+    "customer_id": {
+      "type": "string",
+      "description": "Vehicle owner ID"
+    },
+    "customer_email": {
+      "type": "string",
+      "description": "Customer email"
+    },
+    "customer_name": {
+      "type": "string",
+      "description": "Customer name"
+    },
+    "appointment_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date of appointment"
+    },
+    "start_time": {
+      "type": "string",
+      "description": "Start time (HH:MM format)"
+    },
+    "end_time": {
+      "type": "string",
+      "description": "End time (HH:MM format)"
+    },
+    "service_type": {
+      "type": "string",
+      "enum": [
+        "oil_change",
+        "tire_rotation",
+        "tire_replacement",
+        "brake_service",
+        "battery_replacement",
+        "transmission_service",
+        "coolant_flush",
+        "air_filter",
+        "spark_plugs",
+        "belt_replacement",
+        "inspection",
+        "diagnostic",
+        "general_maintenance",
+        "custom"
+      ],
+      "description": "Type of service"
+    },
+    "service_description": {
+      "type": "string",
+      "description": "Details about the service needed"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "scheduled",
+        "confirmed",
+        "in_progress",
+        "completed",
+        "cancelled",
+        "no_show"
+      ],
+      "default": "scheduled",
+      "description": "Appointment status"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional notes"
+    },
+    "reminder_sent": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether reminder was sent"
+    },
+    "estimated_duration_hours": {
+      "type": "number",
+      "description": "Estimated service duration"
+    }
+  },
+  "required": [
+    "vehicle_id",
+    "mechanic_id",
+    "customer_id",
+    "appointment_date",
+    "start_time",
+    "service_type"
+  ]
+}

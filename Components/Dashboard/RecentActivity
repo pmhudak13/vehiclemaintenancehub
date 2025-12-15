@@ -1,0 +1,106 @@
+import React from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Activity, Wrench, DollarSign } from "lucide-react";
+import { format } from "date-fns";
+
+const serviceTypeLabels = {
+  oil_change: "Oil Change",
+  tire_rotation: "Tire Rotation",
+  tire_replacement: "Tire Replacement",
+  brake_service: "Brake Service",
+  battery_replacement: "Battery Replacement",
+  transmission_service: "Transmission Service",
+  coolant_flush: "Coolant Flush",
+  air_filter: "Air Filter",
+  spark_plugs: "Spark Plugs",
+  belt_replacement: "Belt Replacement",
+  water_pump: "Water Pump",
+  alternator: "Alternator",
+  starter: "Starter",
+  suspension: "Suspension",
+  alignment: "Alignment",
+  inspection: "Inspection",
+  other: "Other"
+};
+
+export default function RecentActivity({ logs, vehicles }) {
+  const getVehicle = (vehicleId) => vehicles?.find(v => v.id === vehicleId);
+  
+  const recentLogs = [...logs]
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .slice(0, 5);
+
+  if (recentLogs.length === 0) {
+    return (
+      <Card className="border-0 shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+            <Activity className="w-5 h-5 text-emerald-600" />
+            Recent Activity
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8">
+            <div className="w-12 h-12 rounded-full bg-slate-100 mx-auto flex items-center justify-center mb-3">
+              <Wrench className="w-6 h-6 text-slate-400" />
+            </div>
+            <p className="text-slate-600 text-sm">No maintenance logs yet</p>
+            <p className="text-slate-400 text-xs mt-1">Start tracking your vehicle maintenance</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="border-0 shadow-sm">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+          <Activity className="w-5 h-5 text-emerald-600" />
+          Recent Activity
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          {recentLogs.map((log, index) => {
+            const vehicle = getVehicle(log.vehicle_id);
+            return (
+              <div key={log.id} className="flex items-start gap-3">
+                <div className="relative">
+                  <div className="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center">
+                    <Wrench className="w-4 h-4 text-blue-600" />
+                  </div>
+                  {index < recentLogs.length - 1 && (
+                    <div className="absolute top-9 left-1/2 -translate-x-1/2 w-px h-full bg-slate-200" />
+                  )}
+                </div>
+                <div className="flex-1 pb-4">
+                  <p className="font-medium text-slate-900">
+                    {log.title || serviceTypeLabels[log.service_type]}
+                  </p>
+                  {vehicle && (
+                    <p className="text-sm text-slate-500">
+                      {vehicle.year} {vehicle.make} {vehicle.model}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-3 mt-1 text-xs text-slate-400">
+                    <span>{format(new Date(log.date), "MMM d, yyyy")}</span>
+                    {log.cost > 0 && (
+                      <span className="flex items-center gap-1">
+                        <DollarSign className="w-3 h-3" />
+                        {log.cost.toLocaleString()}
+                      </span>
+                    )}
+                    {log.mileage && (
+                      <span>{log.mileage.toLocaleString()} mi</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}

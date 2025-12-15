@@ -1,0 +1,120 @@
+import React from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Calendar, Clock, Car, User, Mail, FileText } from "lucide-react";
+import { format, parseISO } from "date-fns";
+
+const statusColors = {
+  scheduled: "bg-blue-100 text-blue-800",
+  confirmed: "bg-green-100 text-green-800",
+  in_progress: "bg-orange-100 text-orange-800",
+  completed: "bg-slate-100 text-slate-800",
+  cancelled: "bg-red-100 text-red-800",
+  no_show: "bg-slate-100 text-slate-600"
+};
+
+export default function AppointmentDetailDialog({ open, onClose, appointment, vehicle, onStatusChange }) {
+  if (!appointment) return null;
+
+  const handleStatusChange = (newStatus) => {
+    onStatusChange(appointment.id, newStatus);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Appointment Details</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-slate-500">Status</span>
+            <Select value={appointment.status} onValueChange={handleStatusChange}>
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="scheduled">Scheduled</SelectItem>
+                <SelectItem value="confirmed">Confirmed</SelectItem>
+                <SelectItem value="in_progress">In Progress</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
+                <SelectItem value="no_show">No Show</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-3 pt-2">
+            <div className="flex items-start gap-3">
+              <Calendar className="w-4 h-4 text-slate-400 mt-0.5" />
+              <div>
+                <p className="text-sm text-slate-500">Date & Time</p>
+                <p className="font-medium">
+                  {format(parseISO(appointment.appointment_date), 'EEEE, MMMM d, yyyy')}
+                </p>
+                <p className="text-sm text-slate-600">
+                  {appointment.start_time} - {appointment.end_time}
+                </p>
+              </div>
+            </div>
+
+            {vehicle && (
+              <div className="flex items-start gap-3">
+                <Car className="w-4 h-4 text-slate-400 mt-0.5" />
+                <div>
+                  <p className="text-sm text-slate-500">Vehicle</p>
+                  <p className="font-medium">
+                    {vehicle.year} {vehicle.make} {vehicle.model}
+                  </p>
+                  {vehicle.vin && (
+                    <p className="text-xs text-slate-500 font-mono">VIN: {vehicle.vin}</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-start gap-3">
+              <User className="w-4 h-4 text-slate-400 mt-0.5" />
+              <div>
+                <p className="text-sm text-slate-500">Customer</p>
+                <p className="font-medium">{appointment.customer_name}</p>
+                <p className="text-sm text-slate-600 flex items-center gap-1">
+                  <Mail className="w-3 h-3" />
+                  {appointment.customer_email}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <FileText className="w-4 h-4 text-slate-400 mt-0.5" />
+              <div>
+                <p className="text-sm text-slate-500">Service</p>
+                <p className="font-medium">{appointment.service_type.replace(/_/g, ' ')}</p>
+                {appointment.service_description && (
+                  <p className="text-sm text-slate-600 mt-1">{appointment.service_description}</p>
+                )}
+              </div>
+            </div>
+
+            {appointment.notes && (
+              <div className="flex items-start gap-3">
+                <Clock className="w-4 h-4 text-slate-400 mt-0.5" />
+                <div>
+                  <p className="text-sm text-slate-500">Notes</p>
+                  <p className="text-sm text-slate-600">{appointment.notes}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex justify-end">
+          <Button onClick={onClose}>Close</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

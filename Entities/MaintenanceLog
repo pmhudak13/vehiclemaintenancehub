@@ -1,0 +1,103 @@
+{
+  "name": "MaintenanceLog",
+  "type": "object",
+  "properties": {
+    "vehicle_id": {
+      "type": "string",
+      "description": "Reference to vehicle"
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date of service"
+    },
+    "mileage": {
+      "type": "number",
+      "description": "Odometer reading at service"
+    },
+    "service_type": {
+      "type": "string",
+      "enum": [
+        "oil_change",
+        "tire_rotation",
+        "tire_replacement",
+        "brake_service",
+        "battery_replacement",
+        "transmission_service",
+        "coolant_flush",
+        "air_filter",
+        "spark_plugs",
+        "belt_replacement",
+        "water_pump",
+        "alternator",
+        "starter",
+        "suspension",
+        "alignment",
+        "inspection",
+        "other"
+      ],
+      "description": "Type of maintenance"
+    },
+    "title": {
+      "type": "string",
+      "description": "Short title for the log"
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed notes"
+    },
+    "cost": {
+      "type": "number",
+      "description": "Cost of service"
+    },
+    "shop_name": {
+      "type": "string",
+      "description": "Where service was performed"
+    },
+    "attachments": {
+      "type": "array",
+      "description": "Photos, receipts, PDFs",
+      "items": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "mechanic_id": {
+      "type": "string",
+      "description": "If logged by a mechanic"
+    },
+    "parts_replaced": {
+      "type": "array",
+      "description": "Parts that were replaced",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "part_number": {
+            "type": "string"
+          },
+          "warranty_months": {
+            "type": "number"
+          }
+        }
+      }
+    }
+  },
+  "required": [
+    "vehicle_id",
+    "date",
+    "service_type"
+  ]
+}

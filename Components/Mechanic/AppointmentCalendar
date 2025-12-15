@@ -1,0 +1,124 @@
+import React, { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Calendar, ChevronLeft, ChevronRight, Clock, Car, User, Plus } from "lucide-react";
+import { format, startOfWeek, addDays, isSameDay, parseISO } from "date-fns";
+
+const statusColors = {
+  scheduled: "bg-blue-100 text-blue-800 border-blue-200",
+  confirmed: "bg-green-100 text-green-800 border-green-200",
+  in_progress: "bg-orange-100 text-orange-800 border-orange-200",
+  completed: "bg-slate-100 text-slate-800 border-slate-200",
+  cancelled: "bg-red-100 text-red-800 border-red-200",
+  no_show: "bg-slate-100 text-slate-600 border-slate-200"
+};
+
+export default function AppointmentCalendar({ appointments = [], vehicles = [], onNewAppointment, onAppointmentClick }) {
+  const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
+
+  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
+
+  const getAppointmentsForDay = (date) => {
+    return appointments.filter(apt => {
+      const aptDate = parseISO(apt.appointment_date);
+      return isSameDay(aptDate, date);
+    }).sort((a, b) => a.start_time.localeCompare(b.start_time));
+  };
+
+  const previousWeek = () => {
+    setCurrentWeekStart(addDays(currentWeekStart, -7));
+  };
+
+  const nextWeek = () => {
+    setCurrentWeekStart(addDays(currentWeekStart, 7));
+  };
+
+  const todayWeek = () => {
+    setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  };
+
+  return (
+    <Card className="border-0 shadow-sm">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-orange-600" />
+            Appointment Calendar
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={todayWeek}>
+              Today
+            </Button>
+            <Button variant="outline" size="icon" onClick={previousWeek}>
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+            <span className="text-sm font-medium px-2">
+              {format(currentWeekStart, 'MMM d')} - {format(addDays(currentWeekStart, 6), 'MMM d, yyyy')}
+            </span>
+            <Button variant="outline" size="icon" onClick={nextWeek}>
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+            <Button onClick={onNewAppointment} className="bg-orange-600 hover:bg-orange-700">
+              <Plus className="w-4 h-4 mr-2" />
+              New Appointment
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-7 gap-2">
+          {weekDays.map((day, index) => {
+            const dayAppointments = getAppointmentsForDay(day);
+            const isToday = isSameDay(day, new Date());
+
+            return (
+              <div key={index} className={`border rounded-lg overflow-hidden ${isToday ? 'border-orange-400 bg-orange-50/50' : 'border-slate-200'}`}>
+                <div className={`p-2 text-center border-b ${isToday ? 'bg-orange-600 text-white' : 'bg-slate-50'}`}>
+                  <div className="text-xs font-medium">{format(day, 'EEE')}</div>
+                  <div className={`text-lg font-bold ${isToday ? '' : 'text-slate-900'}`}>
+                    {format(day, 'd')}
+                  </div>
+                </div>
+                <div className="p-2 space-y-2 min-h-[300px] bg-white">
+                  {dayAppointments.length === 0 ? (
+                    <p className="text-xs text-slate-400 text-center mt-4">No appointments</p>
+                  ) : (
+                    dayAppointments.map((apt) => {
+                      const vehicle = vehicles.find(v => v.id === apt.vehicle_id);
+                      return (
+                        <div
+                          key={apt.id}
+                          onClick={() => onAppointmentClick(apt)}
+                          className="bg-slate-50 border rounded-lg p-2 cursor-pointer hover:shadow-sm transition-shadow"
+                        >
+                          <div className="flex items-center gap-1 text-xs text-slate-600 mb-1">
+                            <Clock className="w-3 h-3" />
+                            {apt.start_time}
+                          </div>
+                          {vehicle && (
+                            <div className="flex items-center gap-1 text-xs font-medium mb-1">
+                              <Car className="w-3 h-3" />
+                              <span className="truncate">{vehicle.make} {vehicle.model}</span>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-1 text-xs text-slate-500 mb-1">
+                            <User className="w-3 h-3" />
+                            <span className="truncate">{apt.customer_name || apt.customer_email}</span>
+                          </div>
+                          <Badge className={`text-xs ${statusColors[apt.status]}`}>
+                            {apt.status}
+                          </Badge>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}

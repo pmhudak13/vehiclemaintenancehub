@@ -1,0 +1,40 @@
+{
+  "name": "MechanicAvailability",
+  "type": "object",
+  "properties": {
+    "mechanic_id": {
+      "type": "string",
+      "description": "Mechanic user ID"
+    },
+    "day_of_week": {
+      "type": "string",
+      "enum": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "sunday"
+      ],
+      "description": "Day of the week"
+    },
+    "start_time": {
+      "type": "string",
+      "description": "Opening time (HH:MM format)"
+    },
+    "end_time": {
+      "type": "string",
+      "description": "Closing time (HH:MM format)"
+    },
+    "is_available": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether mechanic works this day"
+    }
+  },
+  "required": [
+    "mechanic_id",
+    "day_of_week"
+  ]
+}

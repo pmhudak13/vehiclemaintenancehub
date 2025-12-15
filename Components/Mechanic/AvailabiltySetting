@@ -1,0 +1,128 @@
+import React, { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Clock, Save, Loader2 } from "lucide-react";
+
+const daysOfWeek = [
+  { value: 'monday', label: 'Monday' },
+  { value: 'tuesday', label: 'Tuesday' },
+  { value: 'wednesday', label: 'Wednesday' },
+  { value: 'thursday', label: 'Thursday' },
+  { value: 'friday', label: 'Friday' },
+  { value: 'saturday', label: 'Saturday' },
+  { value: 'sunday', label: 'Sunday' }
+];
+
+export default function AvailabilitySettings({ mechanicId, availability = [], onSave }) {
+  const [saving, setSaving] = useState(false);
+  const [schedule, setSchedule] = useState(() => {
+    const defaultSchedule = daysOfWeek.map(day => ({
+      day_of_week: day.value,
+      is_available: day.value !== 'sunday' && day.value !== 'saturday',
+      start_time: '08:00',
+      end_time: '17:00'
+    }));
+
+    availability.forEach(avail => {
+      const index = defaultSchedule.findIndex(d => d.day_of_week === avail.day_of_week);
+      if (index !== -1) {
+        defaultSchedule[index] = {
+          day_of_week: avail.day_of_week,
+          is_available: avail.is_available,
+          start_time: avail.start_time || '08:00',
+          end_time: avail.end_time || '17:00'
+        };
+      }
+    });
+
+    return defaultSchedule;
+  });
+
+  const updateDay = (dayValue, field, value) => {
+    setSchedule(prev => prev.map(day => 
+      day.day_of_week === dayValue 
+        ? { ...day, [field]: value }
+        : day
+    ));
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    await onSave(schedule.map(day => ({
+      ...day,
+      mechanic_id: mechanicId
+    })));
+    setSaving(false);
+  };
+
+  return (
+    <Card className="border-0 shadow-sm">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Clock className="w-5 h-5 text-orange-600" />
+          Working Hours
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {schedule.map((day, index) => {
+          const dayLabel = daysOfWeek.find(d => d.value === day.day_of_week)?.label;
+          
+          return (
+            <div key={day.day_of_week} className="flex items-center gap-4 p-3 bg-slate-50 rounded-lg">
+              <div className="w-28">
+                <span className="font-medium text-sm">{dayLabel}</span>
+              </div>
+              
+              <Switch
+                checked={day.is_available}
+                onCheckedChange={(checked) => updateDay(day.day_of_week, 'is_available', checked)}
+              />
+              
+              {day.is_available && (
+                <>
+                  <Input
+                    type="time"
+                    value={day.start_time}
+                    onChange={(e) => updateDay(day.day_of_week, 'start_time', e.target.value)}
+                    className="w-32"
+                  />
+                  <span className="text-slate-400">to</span>
+                  <Input
+                    type="time"
+                    value={day.end_time}
+                    onChange={(e) => updateDay(day.day_of_week, 'end_time', e.target.value)}
+                    className="w-32"
+                  />
+                </>
+              )}
+              
+              {!day.is_available && (
+                <span className="text-sm text-slate-400">Unavailable</span>
+              )}
+            </div>
+          );
+        })}
+
+        <Button 
+          onClick={handleSave}
+          disabled={saving}
+          className="w-full bg-orange-600 hover:bg-orange-700 mt-4"
+        >
+          {saving ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            <>
+              <Save className="w-4 h-4 mr-2" />
+              Save Availability
+            </>
+          )}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}

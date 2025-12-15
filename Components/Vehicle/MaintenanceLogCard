@@ -1,0 +1,115 @@
+import React from 'react';
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Wrench, Calendar, Gauge, DollarSign, MapPin, Paperclip, ChevronRight } from "lucide-react";
+import { format } from "date-fns";
+import { motion } from "framer-motion";
+
+const serviceTypeLabels = {
+  oil_change: "Oil Change",
+  tire_rotation: "Tire Rotation",
+  tire_replacement: "Tire Replacement",
+  brake_service: "Brake Service",
+  battery_replacement: "Battery Replacement",
+  transmission_service: "Transmission Service",
+  coolant_flush: "Coolant Flush",
+  air_filter: "Air Filter",
+  spark_plugs: "Spark Plugs",
+  belt_replacement: "Belt Replacement",
+  water_pump: "Water Pump",
+  alternator: "Alternator",
+  starter: "Starter",
+  suspension: "Suspension",
+  alignment: "Alignment",
+  inspection: "Inspection",
+  other: "Other"
+};
+
+const serviceTypeColors = {
+  oil_change: "bg-amber-100 text-amber-700",
+  tire_rotation: "bg-slate-100 text-slate-700",
+  tire_replacement: "bg-slate-100 text-slate-700",
+  brake_service: "bg-red-100 text-red-700",
+  battery_replacement: "bg-green-100 text-green-700",
+  transmission_service: "bg-purple-100 text-purple-700",
+  coolant_flush: "bg-cyan-100 text-cyan-700",
+  air_filter: "bg-sky-100 text-sky-700",
+  spark_plugs: "bg-orange-100 text-orange-700",
+  belt_replacement: "bg-indigo-100 text-indigo-700",
+  water_pump: "bg-blue-100 text-blue-700",
+  alternator: "bg-violet-100 text-violet-700",
+  starter: "bg-pink-100 text-pink-700",
+  suspension: "bg-emerald-100 text-emerald-700",
+  alignment: "bg-teal-100 text-teal-700",
+  inspection: "bg-lime-100 text-lime-700",
+  other: "bg-gray-100 text-gray-700"
+};
+
+export default function MaintenanceLogCard({ log, onClick, index = 0 }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.05 }}
+    >
+      <Card 
+        className="border-0 shadow-sm hover:shadow-md transition-all cursor-pointer group"
+        onClick={onClick}
+      >
+        <CardContent className="p-4">
+          <div className="flex items-start justify-between">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
+                <Wrench className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h4 className="font-semibold text-slate-900">
+                    {log.title || serviceTypeLabels[log.service_type]}
+                  </h4>
+                  <Badge className={`${serviceTypeColors[log.service_type]} border-0 text-xs`}>
+                    {serviceTypeLabels[log.service_type]}
+                  </Badge>
+                </div>
+                {log.description && (
+                  <p className="text-sm text-slate-500 mt-1 line-clamp-2">{log.description}</p>
+                )}
+                <div className="flex items-center gap-4 mt-2 flex-wrap">
+                  <span className="flex items-center gap-1 text-xs text-slate-500">
+                    <Calendar className="w-3 h-3" />
+                    {format(new Date(log.date), "MMM d, yyyy")}
+                  </span>
+                  {log.mileage && (
+                    <span className="flex items-center gap-1 text-xs text-slate-500">
+                      <Gauge className="w-3 h-3" />
+                      {log.mileage.toLocaleString()} mi
+                    </span>
+                  )}
+                  {log.cost > 0 && (
+                    <span className="flex items-center gap-1 text-xs text-slate-500">
+                      <DollarSign className="w-3 h-3" />
+                      {log.cost.toLocaleString()}
+                    </span>
+                  )}
+                  {log.shop_name && (
+                    <span className="flex items-center gap-1 text-xs text-slate-500">
+                      <MapPin className="w-3 h-3" />
+                      {log.shop_name}
+                    </span>
+                  )}
+                  {log.attachments?.length > 0 && (
+                    <span className="flex items-center gap-1 text-xs text-slate-500">
+                      <Paperclip className="w-3 h-3" />
+                      {log.attachments.length}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+            <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-blue-600 transition-colors flex-shrink-0" />
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+}

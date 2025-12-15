@@ -1,0 +1,60 @@
+{
+  "name": "Transfer",
+  "type": "object",
+  "properties": {
+    "vehicle_id": {
+      "type": "string",
+      "description": "Vehicle being transferred"
+    },
+    "from_user_id": {
+      "type": "string",
+      "description": "Current owner user ID"
+    },
+    "from_user_email": {
+      "type": "string",
+      "description": "Current owner email"
+    },
+    "to_user_email": {
+      "type": "string",
+      "description": "New owner email (if known)"
+    },
+    "transfer_code": {
+      "type": "string",
+      "description": "6-digit numeric code"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "completed",
+        "cancelled",
+        "expired"
+      ],
+      "default": "pending"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "72 hours from creation"
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When transfer was completed"
+    },
+    "is_used": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether code has been used"
+    },
+    "vehicle_snapshot": {
+      "type": "object",
+      "description": "Vehicle details at time of transfer"
+    }
+  },
+  "required": [
+    "vehicle_id",
+    "from_user_id",
+    "transfer_code"
+  ]
+}

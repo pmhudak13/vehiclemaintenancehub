@@ -1,0 +1,380 @@
+import React, { useState, useEffect } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Plus, X, Loader2, FileText, Sparkles, Bell } from "lucide-react";
+import { format, addDays } from "date-fns";
+import { base44 } from "@/api/base44Client";
+
+export default function InvoiceGenerator({ open, onClose, vehicle, mechanic, onSave, maintenanceLog }) {
+  const [saving, setSaving] = useState(false);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [formData, setFormData] = useState({
+    issue_date: format(new Date(), 'yyyy-MM-dd'),
+    due_date: format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'),
+    line_items: [{ description: '', quantity: 1, unit_price: 0, total: 0 }],
+    tax_rate: 0,
+    notes: '',
+    payment_reminder_enabled: false,
+    payment_reminder_days_before: 3
+  });
+
+  useEffect(() => {
+    if (open && maintenanceLog) {
+      generateAISuggestions();
+    }
+  }, [open, maintenanceLog]);
+
+  const generateAISuggestions = async () => {
+    if (!maintenanceLog) return;
+    
+    setLoadingSuggestions(true);
+    
+    try {
+      const prompt = `Based on the following vehicle service information, suggest detailed line items for an invoice including typical parts and labor:
+
+Service Type: ${maintenanceLog.service_type}
+Service Description: ${maintenanceLog.description || 'Not provided'}
+Vehicle: ${vehicle.year} ${vehicle.make} ${vehicle.model}
+
+Provide a JSON array of line items with realistic pricing. Each item should have:
+- description (string): detailed description of part or labor
+- quantity (number): quantity
+- unit_price (number): price in USD
+
+Suggest 3-5 line items that would be typical for this service.`;
+
+      const result = await base44.integrations.Core.InvokeLLM({
+        prompt,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            line_items: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  description: { type: "string" },
+                  quantity: { type: "number" },
+                  unit_price: { type: "number" }
+                }
+              }
+            }
+          }
+        }
+      });
+
+      if (result?.line_items && result.line_items.length > 0) {
+        const items = result.line_items.map(item => ({
+          ...item,
+          total: item.quantity * item.unit_price
+        }));
+        
+        setFormData(prev => ({ ...prev, line_items: items }));
+      }
+    } catch (error) {
+      console.error('Failed to generate suggestions:', error);
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  };
+
+  const addLineItem = () => {
+    setFormData({
+      ...formData,
+      line_items: [...formData.line_items, { description: '', quantity: 1, unit_price: 0, total: 0 }]
+    });
+  };
+
+  const removeLineItem = (index) => {
+    setFormData({
+      ...formData,
+      line_items: formData.line_items.filter((_, i) => i !== index)
+    });
+  };
+
+  const updateLineItem = (index, field, value) => {
+    const items = [...formData.line_items];
+    items[index][field] = value;
+    
+    if (field === 'quantity' || field === 'unit_price') {
+      items[index].total = items[index].quantity * items[index].unit_price;
+    }
+    
+    setFormData({ ...formData, line_items: items });
+  };
+
+  const calculateTotals = () => {
+    const subtotal = formData.line_items.reduce((sum, item) => sum + item.total, 0);
+    const tax_amount = subtotal * (formData.tax_rate / 100);
+    const total = subtotal + tax_amount;
+    return { subtotal, tax_amount, total };
+  };
+
+  const handleSubmit = async () => {
+    const { subtotal, tax_amount, total } = calculateTotals();
+    const invoiceNumber = `INV-${Date.now()}`;
+    
+    const invoiceData = {
+      invoice_number: invoiceNumber,
+      vehicle_id: vehicle.id,
+      mechanic_id: mechanic.id,
+      customer_name: vehicle.owner_name || 'Customer',
+      customer_email: vehicle.owner_email || '',
+      issue_date: formData.issue_date,
+      due_date: formData.due_date,
+      line_items: formData.line_items,
+      subtotal,
+      tax_rate: formData.tax_rate,
+      tax_amount,
+      total,
+      status: 'draft',
+      notes: formData.notes,
+      maintenance_log_id: maintenanceLog?.id
+    };
+    
+    setSaving(true);
+    await onSave(invoiceData);
+    
+    // Create payment reminder if enabled
+    if (formData.payment_reminder_enabled && vehicle.owner_email) {
+      const reminderDate = addDays(new Date(formData.due_date), -formData.payment_reminder_days_before);
+      
+      // Send reminder email
+      try {
+        await base44.integrations.Core.SendEmail({
+          to: vehicle.owner_email,
+          subject: `Payment Reminder - Invoice ${invoiceNumber}`,
+          body: `Hello,
+
+This is a friendly reminder that invoice ${invoiceNumber} for your ${vehicle.year} ${vehicle.make} ${vehicle.model} is due on ${format(new Date(formData.due_date), 'MMMM d, yyyy')}.
+
+Amount due: $${total.toFixed(2)}
+
+${mechanic.shop_name ? `Please contact ${mechanic.shop_name} if you have any questions.` : ''}
+
+Thank you!`
+        });
+      } catch (e) {
+        console.error('Failed to send reminder:', e);
+      }
+    }
+    
+    setSaving(false);
+    onClose();
+  };
+
+  const { subtotal, tax_amount, total } = calculateTotals();
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <FileText className="w-5 h-5 text-orange-600" />
+            Generate Invoice
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-6 py-4">
+          {/* Header Info */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Issue Date</Label>
+              <Input
+                type="date"
+                value={formData.issue_date}
+                onChange={(e) => setFormData({...formData, issue_date: e.target.value})}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Due Date</Label>
+              <Input
+                type="date"
+                value={formData.due_date}
+                onChange={(e) => setFormData({...formData, due_date: e.target.value})}
+              />
+            </div>
+          </div>
+
+          {/* Vehicle Info */}
+          <div className="bg-slate-50 rounded-lg p-4">
+            <p className="text-sm text-slate-500 mb-1">Vehicle</p>
+            <p className="font-semibold">{vehicle.year} {vehicle.make} {vehicle.model}</p>
+            {vehicle.vin && (
+              <p className="text-xs text-slate-500 font-mono">VIN: {vehicle.vin}</p>
+            )}
+          </div>
+
+          {/* Line Items */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label>Services & Parts</Label>
+              <div className="flex gap-2">
+                {maintenanceLog && (
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={generateAISuggestions}
+                    disabled={loadingSuggestions}
+                    className="border-purple-200 text-purple-700 hover:bg-purple-50"
+                  >
+                    {loadingSuggestions ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4 mr-1" />
+                        AI Suggest
+                      </>
+                    )}
+                  </Button>
+                )}
+                <Button size="sm" variant="outline" onClick={addLineItem}>
+                  <Plus className="w-4 h-4 mr-1" />
+                  Add Item
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              {formData.line_items.map((item, index) => (
+                <div key={index} className="grid grid-cols-12 gap-2 items-start">
+                  <div className="col-span-5">
+                    <Input
+                      placeholder="Description"
+                      value={item.description}
+                      onChange={(e) => updateLineItem(index, 'description', e.target.value)}
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <Input
+                      type="number"
+                      placeholder="Qty"
+                      value={item.quantity}
+                      onChange={(e) => updateLineItem(index, 'quantity', Number(e.target.value))}
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <Input
+                      type="number"
+                      placeholder="Price"
+                      value={item.unit_price}
+                      onChange={(e) => updateLineItem(index, 'unit_price', Number(e.target.value))}
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <Input
+                      value={`$${item.total.toFixed(2)}`}
+                      readOnly
+                      className="bg-slate-50"
+                    />
+                  </div>
+                  <div className="col-span-1">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => removeLineItem(index)}
+                      disabled={formData.line_items.length === 1}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Totals */}
+          <div className="space-y-2 bg-slate-50 rounded-lg p-4">
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-600">Subtotal</span>
+              <span className="font-medium">${subtotal.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between items-center text-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-slate-600">Tax</span>
+                <Input
+                  type="number"
+                  value={formData.tax_rate}
+                  onChange={(e) => setFormData({...formData, tax_rate: Number(e.target.value)})}
+                  className="w-16 h-7 text-xs"
+                  placeholder="%"
+                />
+                <span className="text-slate-600">%</span>
+              </div>
+              <span className="font-medium">${tax_amount.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between text-lg font-bold pt-2 border-t">
+              <span>Total</span>
+              <span className="text-orange-600">${total.toFixed(2)}</span>
+            </div>
+          </div>
+
+          {/* Payment Reminder */}
+          <div className="space-y-3 bg-blue-50 rounded-lg p-4 border border-blue-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Bell className="w-4 h-4 text-blue-600" />
+                <Label className="text-sm font-medium">Payment Reminder</Label>
+              </div>
+              <Switch
+                checked={formData.payment_reminder_enabled}
+                onCheckedChange={(checked) => setFormData({...formData, payment_reminder_enabled: checked})}
+              />
+            </div>
+            
+            {formData.payment_reminder_enabled && (
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-slate-600">Send reminder</span>
+                <Input
+                  type="number"
+                  min="1"
+                  max="30"
+                  value={formData.payment_reminder_days_before}
+                  onChange={(e) => setFormData({...formData, payment_reminder_days_before: Number(e.target.value)})}
+                  className="w-16 h-8 text-center"
+                />
+                <span className="text-slate-600">days before due date</span>
+              </div>
+            )}
+          </div>
+
+          {/* Notes */}
+          <div className="space-y-2">
+            <Label>Notes (optional)</Label>
+            <Textarea
+              placeholder="Payment terms, warranty info, etc."
+              value={formData.notes}
+              onChange={(e) => setFormData({...formData, notes: e.target.value})}
+              rows={3}
+            />
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-3">
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button 
+            onClick={handleSubmit}
+            disabled={saving || formData.line_items.every(item => !item.description)}
+            className="bg-orange-600 hover:bg-orange-700"
+          >
+            {saving ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              'Generate Invoice'
+            )}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

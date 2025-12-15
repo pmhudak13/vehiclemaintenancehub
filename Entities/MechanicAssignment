@@ -1,0 +1,54 @@
+{
+  "name": "MechanicAssignment",
+  "type": "object",
+  "properties": {
+    "vehicle_id": {
+      "type": "string",
+      "description": "Vehicle being assigned"
+    },
+    "mechanic_id": {
+      "type": "string",
+      "description": "Mechanic user ID"
+    },
+    "mechanic_email": {
+      "type": "string",
+      "description": "Mechanic email"
+    },
+    "owner_id": {
+      "type": "string",
+      "description": "Vehicle owner user ID"
+    },
+    "owner_email": {
+      "type": "string",
+      "description": "Owner email"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "completed",
+        "cancelled"
+      ],
+      "default": "active",
+      "description": "Assignment status"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Assignment notes"
+    },
+    "assigned_date": {
+      "type": "string",
+      "format": "date",
+      "description": "When mechanic was assigned"
+    },
+    "vehicle_snapshot": {
+      "type": "object",
+      "description": "Vehicle details at time of assignment"
+    }
+  },
+  "required": [
+    "vehicle_id",
+    "mechanic_id",
+    "owner_id"
+  ]
+}

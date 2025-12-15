@@ -1,0 +1,410 @@
+import React, { useState, useEffect } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CalendarIcon, Upload, X, Loader2, Edit, Camera } from "lucide-react";
+import { format, parse } from "date-fns";
+import { base44 } from "@/api/base44Client";
+import ReceiptScanner from "./ReceiptScanner";
+
+const serviceTypes = [
+  { value: "oil_change", label: "Oil Change" },
+  { value: "tire_rotation", label: "Tire Rotation" },
+  { value: "tire_replacement", label: "Tire Replacement" },
+  { value: "brake_service", label: "Brake Service" },
+  { value: "battery_replacement", label: "Battery Replacement" },
+  { value: "transmission_service", label: "Transmission Service" },
+  { value: "coolant_flush", label: "Coolant Flush" },
+  { value: "air_filter", label: "Air Filter" },
+  { value: "spark_plugs", label: "Spark Plugs" },
+  { value: "belt_replacement", label: "Belt Replacement" },
+  { value: "water_pump", label: "Water Pump" },
+  { value: "alternator", label: "Alternator" },
+  { value: "starter", label: "Starter" },
+  { value: "suspension", label: "Suspension" },
+  { value: "alignment", label: "Alignment" },
+  { value: "inspection", label: "Inspection" },
+  { value: "other", label: "Other" }
+];
+
+export default function AddLogDialog({ open, onClose, vehicleId, currentMileage, onSave, userTier = 'free', vehicleUnit = 'miles' }) {
+  const [activeTab, setActiveTab] = useState("scan");
+  const [formData, setFormData] = useState({
+    service_type: "",
+    title: "",
+    description: "",
+    date: new Date(),
+    mileage: currentMileage || "",
+    cost: "",
+    shop_name: "",
+    attachments: []
+  });
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [scannedData, setScannedData] = useState(null);
+
+  const handleReceiptDataExtracted = (data) => {
+    setScannedData(data);
+    
+    // Map extracted data to form
+    const updates = {};
+    
+    if (data.date) {
+      try {
+        const parsedDate = parse(data.date, 'yyyy-MM-dd', new Date());
+        updates.date = parsedDate;
+      } catch (e) {
+        updates.date = new Date();
+      }
+    }
+    
+    if (data.mileage) updates.mileage = data.mileage;
+    if (data.cost) updates.cost = data.cost;
+    if (data.shop_name) updates.shop_name = data.shop_name;
+    if (data.description) updates.description = data.description;
+    
+    // Try to map service_type
+    if (data.service_type) {
+      const normalizedType = data.service_type.toLowerCase().replace(/\s+/g, '_');
+      const validTypes = serviceTypes.map(t => t.value);
+      if (validTypes.includes(normalizedType)) {
+        updates.service_type = normalizedType;
+      }
+    }
+    
+    // Add receipt as attachment if available
+    if (data.receipt_url) {
+      updates.attachments = [{
+        url: data.receipt_url,
+        name: 'Scanned Receipt',
+        type: 'image'
+      }];
+    }
+    
+    setFormData(prev => ({ ...prev, ...updates }));
+    setActiveTab("manual");
+  };
+
+  useEffect(() => {
+    if (!open) {
+      setActiveTab("scan");
+      setScannedData(null);
+    }
+  }, [open]);
+
+  const handleFileUpload = async (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+    
+    // Validate file types and sizes
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/heic', 'application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    const maxSize = 25 * 1024 * 1024; // 25MB
+    
+    const validFiles = [];
+    const errors = [];
+    
+    for (const file of files) {
+      if (!allowedTypes.includes(file.type)) {
+        errors.push(`${file.name}: Invalid file type (JPG, PNG, HEIC, PDF, DOCX only)`);
+        continue;
+      }
+      if (file.size > maxSize) {
+        errors.push(`${file.name}: File too large (max 25MB)`);
+        continue;
+      }
+      validFiles.push(file);
+    }
+    
+    if (errors.length > 0) {
+      alert(errors.join('\n'));
+    }
+    
+    if (validFiles.length === 0) return;
+    
+    setUploading(true);
+    const newAttachments = [];
+    
+    for (const file of validFiles) {
+      try {
+        const { file_url } = await base44.integrations.Core.UploadFile({ file });
+        newAttachments.push({
+          url: file_url,
+          name: file.name,
+          type: file.type.includes("pdf") ? "pdf" : file.type.includes("word") ? "doc" : "image"
+        });
+      } catch (error) {
+        console.error('Upload failed:', error);
+      }
+    }
+    
+    setFormData(prev => ({
+      ...prev,
+      attachments: [...prev.attachments, ...newAttachments]
+    }));
+    setUploading(false);
+  };
+
+  const removeAttachment = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      attachments: prev.attachments.filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleSubmit = async () => {
+    if (!formData.service_type || !formData.date) return;
+    
+    setSaving(true);
+    
+    const logData = {
+      vehicle_id: vehicleId,
+      service_type: formData.service_type,
+      title: formData.title || undefined,
+      description: formData.description || undefined,
+      date: format(formData.date, "yyyy-MM-dd"),
+      mileage: formData.mileage ? Number(formData.mileage) : undefined,
+      cost: formData.cost ? Number(formData.cost) : undefined,
+      shop_name: formData.shop_name || undefined,
+      attachments: formData.attachments.length > 0 ? formData.attachments : undefined
+    };
+    
+    await onSave(logData);
+    setSaving(false);
+    onClose();
+    setFormData({
+      service_type: "",
+      title: "",
+      description: "",
+      date: new Date(),
+      mileage: currentMileage || "",
+      cost: "",
+      shop_name: "",
+      attachments: []
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            Log Maintenance
+            {scannedData && (
+              <span className="text-xs font-normal text-green-600 bg-green-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                <Camera className="w-3 h-3" />
+                Receipt Scanned
+              </span>
+            )}
+          </DialogTitle>
+        </DialogHeader>
+        
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="scan" className="flex items-center gap-2">
+              <Camera className="w-4 h-4" />
+              Scan Receipt
+            </TabsTrigger>
+            <TabsTrigger value="manual" className="flex items-center gap-2">
+              <Edit className="w-4 h-4" />
+              Manual Entry
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="scan" className="space-y-4 py-4">
+            <ReceiptScanner 
+              onDataExtracted={handleReceiptDataExtracted}
+              vehicleUnit={vehicleUnit}
+            />
+            
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white px-2 text-slate-500">Or</span>
+              </div>
+            </div>
+            
+            <Button 
+              variant="outline" 
+              className="w-full" 
+              onClick={() => setActiveTab("manual")}
+            >
+              <Edit className="w-4 h-4 mr-2" />
+              Enter Details Manually
+            </Button>
+          </TabsContent>
+
+          <TabsContent value="manual" className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label>Service Type *</Label>
+            <Select 
+              value={formData.service_type} 
+              onValueChange={(value) => setFormData({...formData, service_type: value})}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select service type" />
+              </SelectTrigger>
+              <SelectContent>
+                {serviceTypes.map(type => (
+                  <SelectItem key={type.value} value={type.value}>
+                    {type.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Title (optional)</Label>
+            <Input
+              placeholder="e.g., Replaced water pump and thermostat"
+              value={formData.title}
+              onChange={(e) => setFormData({...formData, title: e.target.value})}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Date *</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start text-left font-normal">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {format(formData.date, "MMM d, yyyy")}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={formData.date}
+                    onSelect={(date) => date && setFormData({...formData, date})}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Mileage ({vehicleUnit})</Label>
+              <Input
+                type="number"
+                placeholder={`Current mileage in ${vehicleUnit}`}
+                value={formData.mileage}
+                onChange={(e) => {
+                  const newMileage = Number(e.target.value);
+                  if (currentMileage && newMileage < currentMileage) {
+                    if (!confirm(`Warning: This mileage (${newMileage}) is lower than your vehicle's current mileage (${currentMileage}). Are you sure you want to continue?`)) {
+                      return;
+                    }
+                  }
+                  setFormData({...formData, mileage: e.target.value});
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Cost ($)</Label>
+              <Input
+                type="number"
+                placeholder="0.00"
+                value={formData.cost}
+                onChange={(e) => setFormData({...formData, cost: e.target.value})}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Shop/Location</Label>
+              <Input
+                placeholder="Where was it done?"
+                value={formData.shop_name}
+                onChange={(e) => setFormData({...formData, shop_name: e.target.value})}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Notes</Label>
+            <Textarea
+              placeholder="Add any additional details..."
+              value={formData.description}
+              onChange={(e) => setFormData({...formData, description: e.target.value})}
+              rows={3}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Attachments</Label>
+            <div className="border-2 border-dashed border-slate-200 rounded-xl p-4 text-center">
+              <input
+                type="file"
+                multiple
+                accept="image/jpeg,image/jpg,image/png,image/heic,.pdf,.docx"
+                onChange={handleFileUpload}
+                className="hidden"
+                id="file-upload"
+                disabled={uploading}
+              />
+              <label htmlFor="file-upload" className="cursor-pointer">
+                {uploading ? (
+                  <div className="flex items-center justify-center gap-2 text-slate-500">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Uploading...
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-2 text-slate-500">
+                    <Upload className="w-8 h-8" />
+                    <span className="text-sm">Upload photos or receipts</span>
+                    <span className="text-xs text-slate-400">JPG, PNG, HEIC, PDF, DOCX (max 25MB)</span>
+                  </div>
+                )}
+              </label>
+            </div>
+            
+            {formData.attachments.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {formData.attachments.map((attachment, index) => (
+                  <div 
+                    key={index} 
+                    className="flex items-center gap-2 bg-slate-100 rounded-lg px-3 py-2 text-sm"
+                  >
+                    <span className="truncate max-w-[150px]">{attachment.name}</span>
+                    <button onClick={() => removeAttachment(index)}>
+                      <X className="w-4 h-4 text-slate-500 hover:text-red-500" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          </TabsContent>
+        </Tabs>
+
+        <div className="flex justify-end gap-3">
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button 
+            onClick={handleSubmit} 
+            disabled={!formData.service_type || saving}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            {saving ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              "Save Log"
+            )}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

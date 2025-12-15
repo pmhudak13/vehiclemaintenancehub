@@ -1,0 +1,140 @@
+import React from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Wrench, Calendar, Gauge, DollarSign, MapPin, FileText, Image, Trash2 } from "lucide-react";
+import { format } from "date-fns";
+
+const serviceTypeLabels = {
+  oil_change: "Oil Change",
+  tire_rotation: "Tire Rotation",
+  tire_replacement: "Tire Replacement",
+  brake_service: "Brake Service",
+  battery_replacement: "Battery Replacement",
+  transmission_service: "Transmission Service",
+  coolant_flush: "Coolant Flush",
+  air_filter: "Air Filter",
+  spark_plugs: "Spark Plugs",
+  belt_replacement: "Belt Replacement",
+  water_pump: "Water Pump",
+  alternator: "Alternator",
+  starter: "Starter",
+  suspension: "Suspension",
+  alignment: "Alignment",
+  inspection: "Inspection",
+  other: "Other"
+};
+
+export default function LogDetailDialog({ open, onClose, log, onDelete }) {
+  if (!log) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Wrench className="w-5 h-5 text-blue-600" />
+            {log.title || serviceTypeLabels[log.service_type]}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-6 py-4">
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="secondary" className="bg-blue-100 text-blue-700">
+              {serviceTypeLabels[log.service_type]}
+            </Badge>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex items-center gap-2 text-slate-600">
+              <Calendar className="w-4 h-4" />
+              <span>{format(new Date(log.date), "MMMM d, yyyy")}</span>
+            </div>
+            {log.mileage && (
+              <div className="flex items-center gap-2 text-slate-600">
+                <Gauge className="w-4 h-4" />
+                <span>{log.mileage.toLocaleString()} miles</span>
+              </div>
+            )}
+            {log.cost > 0 && (
+              <div className="flex items-center gap-2 text-slate-600">
+                <DollarSign className="w-4 h-4" />
+                <span>${log.cost.toLocaleString()}</span>
+              </div>
+            )}
+            {log.shop_name && (
+              <div className="flex items-center gap-2 text-slate-600">
+                <MapPin className="w-4 h-4" />
+                <span>{log.shop_name}</span>
+              </div>
+            )}
+          </div>
+
+          {log.description && (
+            <div>
+              <h4 className="font-medium text-slate-900 mb-2">Notes</h4>
+              <p className="text-slate-600 whitespace-pre-wrap">{log.description}</p>
+            </div>
+          )}
+
+          {log.parts_replaced?.length > 0 && (
+            <div>
+              <h4 className="font-medium text-slate-900 mb-2">Parts Replaced</h4>
+              <div className="space-y-2">
+                {log.parts_replaced.map((part, index) => (
+                  <div key={index} className="bg-slate-50 rounded-lg p-3">
+                    <p className="font-medium">{part.name}</p>
+                    {part.part_number && (
+                      <p className="text-sm text-slate-500">Part #: {part.part_number}</p>
+                    )}
+                    {part.warranty_months && (
+                      <p className="text-sm text-slate-500">{part.warranty_months} month warranty</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {log.attachments?.length > 0 && (
+            <div>
+              <h4 className="font-medium text-slate-900 mb-2">Attachments</h4>
+              <div className="grid grid-cols-2 gap-3">
+                {log.attachments.map((attachment, index) => (
+                  <a 
+                    key={index}
+                    href={attachment.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors"
+                  >
+                    {attachment.type === "pdf" ? (
+                      <FileText className="w-5 h-5 text-red-500" />
+                    ) : (
+                      <Image className="w-5 h-5 text-blue-500" />
+                    )}
+                    <span className="text-sm truncate">{attachment.name}</span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-between pt-4 border-t">
+            <Button 
+              variant="outline" 
+              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+              onClick={() => onDelete(log.id)}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete Log
+            </Button>
+            <Button variant="outline" onClick={onClose}>
+              Close
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

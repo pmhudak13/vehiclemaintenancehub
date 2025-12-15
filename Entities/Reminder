@@ -1,0 +1,92 @@
+{
+  "name": "Reminder",
+  "type": "object",
+  "properties": {
+    "vehicle_id": {
+      "type": "string",
+      "description": "Reference to vehicle"
+    },
+    "service_type": {
+      "type": "string",
+      "enum": [
+        "oil_change",
+        "tire_rotation",
+        "tire_replacement",
+        "brake_service",
+        "battery_replacement",
+        "transmission_service",
+        "coolant_flush",
+        "air_filter",
+        "spark_plugs",
+        "belt_replacement",
+        "inspection",
+        "registration",
+        "insurance",
+        "custom"
+      ],
+      "description": "Type of maintenance"
+    },
+    "custom_title": {
+      "type": "string",
+      "description": "Custom reminder title"
+    },
+    "next_due_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Next due date"
+    },
+    "next_due_mileage": {
+      "type": "number",
+      "description": "Next due mileage"
+    },
+    "interval_months": {
+      "type": "number",
+      "description": "Months between services"
+    },
+    "interval_miles": {
+      "type": "number",
+      "description": "Miles between services"
+    },
+    "is_recurring": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether reminder repeats"
+    },
+    "is_hybrid": {
+      "type": "boolean",
+      "default": false,
+      "description": "Trigger on date OR mileage (whichever first)"
+    },
+    "created_by_user": {
+      "type": "boolean",
+      "default": true,
+      "description": "False if system reminder"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "completed",
+        "dismissed"
+      ],
+      "default": "pending"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional notes"
+    },
+    "last_completed_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Last time this was completed"
+    },
+    "last_completed_mileage": {
+      "type": "number",
+      "description": "Mileage when last completed"
+    }
+  },
+  "required": [
+    "vehicle_id",
+    "service_type"
+  ]
+}

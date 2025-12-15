@@ -1,0 +1,79 @@
+import React, { useState } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { AlertTriangle, Loader2 } from "lucide-react";
+
+export default function UnitConverter({ open, onClose, vehicle, onConvert }) {
+  const [converting, setConverting] = useState(false);
+  const currentUnit = vehicle?.unit || 'miles';
+  const newUnit = currentUnit === 'miles' ? 'km' : 'miles';
+  const conversionFactor = currentUnit === 'miles' ? 1.60934 : 0.621371;
+
+  const handleConvert = async () => {
+    setConverting(true);
+    await onConvert(newUnit);
+    setConverting(false);
+    onClose();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Convert Units</DialogTitle>
+          <DialogDescription>
+            Convert all mileage values from {currentUnit} to {newUnit}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-amber-800">
+                <p className="font-medium mb-2">This will convert:</p>
+                <ul className="space-y-1 text-xs">
+                  <li>• Vehicle odometer reading</li>
+                  <li>• All maintenance log mileages</li>
+                  <li>• All reminder mileage intervals</li>
+                </ul>
+                <p className="mt-3 font-medium">
+                  Conversion: 1 {currentUnit === 'miles' ? 'mile' : 'km'} = {conversionFactor.toFixed(3)} {newUnit === 'miles' ? 'miles' : 'km'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {vehicle?.current_mileage && (
+            <div className="bg-slate-50 rounded-xl p-4 text-sm">
+              <p className="text-slate-500">Current odometer:</p>
+              <p className="text-lg font-semibold text-slate-900">
+                {vehicle.current_mileage.toLocaleString()} {currentUnit}
+              </p>
+              <p className="text-slate-500 mt-2">Will become:</p>
+              <p className="text-lg font-semibold text-blue-600">
+                {Math.round(vehicle.current_mileage * conversionFactor).toLocaleString()} {newUnit}
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-3">
+          <Button variant="outline" onClick={onClose} disabled={converting}>
+            Cancel
+          </Button>
+          <Button onClick={handleConvert} disabled={converting} className="bg-blue-600 hover:bg-blue-700">
+            {converting ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Converting...
+              </>
+            ) : (
+              `Convert to ${newUnit}`
+            )}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

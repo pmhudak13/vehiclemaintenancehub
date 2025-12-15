@@ -1,0 +1,89 @@
+import { base44 } from '@/api/base44Client';
+
+export default async function sendReminderEmails() {
+  const today = new Date();
+  const sevenDaysFromNow = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+  
+  // Get all pending reminders
+  const allReminders = await base44.asServiceRole.entities.Reminder.filter({ status: 'pending' });
+  
+  // Get all vehicles
+  const allVehicles = await base44.asServiceRole.entities.Vehicle.filter({ is_active: true });
+  const vehicleMap = {};
+  allVehicles.forEach(v => vehicleMap[v.id] = v);
+  
+  const emailsSent = [];
+  
+  for (const reminder of allReminders) {
+    const vehicle = vehicleMap[reminder.vehicle_id];
+    if (!vehicle) continue;
+    
+    const owner = await base44.asServiceRole.entities.User.filter({ id: vehicle.created_by });
+    if (!owner || !owner[0]?.email) continue;
+    
+    const user = owner[0];
+    let shouldSend = false;
+    let urgency = '';
+    
+    // Check date-based reminder
+    if (reminder.next_due_date) {
+      const dueDate = new Date(reminder.next_due_date);
+      if (dueDate <= today) {
+        shouldSend = true;
+        urgency = 'OVERDUE';
+      } else if (dueDate <= sevenDaysFromNow) {
+        shouldSend = true;
+        urgency = 'DUE SOON';
+      }
+    }
+    
+    // Check mileage-based reminder
+    if (reminder.next_due_mileage && vehicle.current_mileage) {
+      const mileageUntilDue = reminder.next_due_mileage - vehicle.current_mileage;
+      if (mileageUntilDue <= 0) {
+        shouldSend = true;
+        urgency = urgency || 'OVERDUE';
+      } else if (mileageUntilDue <= 500) {
+        shouldSend = true;
+        urgency = urgency || 'DUE SOON';
+      }
+    }
+    
+    if (shouldSend) {
+      const serviceName = reminder.custom_title || reminder.service_type.replace(/_/g, ' ').toUpperCase();
+      const vehicleName = `${vehicle.year} ${vehicle.make} ${vehicle.model}`;
+      
+      let body = `Hi ${user.full_name || 'there'},\n\n`;
+      body += `This is a reminder that your ${vehicleName} is due for maintenance:\n\n`;
+      body += `Service: ${serviceName}\n`;
+      body += `Status: ${urgency}\n\n`;
+      
+      if (reminder.next_due_date) {
+        body += `Due Date: ${new Date(reminder.next_due_date).toLocaleDateString()}\n`;
+      }
+      
+      if (reminder.next_due_mileage) {
+        body += `Due Mileage: ${reminder.next_due_mileage.toLocaleString()} ${vehicle.unit || 'miles'}\n`;
+        if (vehicle.current_mileage) {
+          body += `Current Mileage: ${vehicle.current_mileage.toLocaleString()} ${vehicle.unit || 'miles'}\n`;
+        }
+      }
+      
+      body += `\nLog into AutoCare to view details and log maintenance.\n\n`;
+      body += `Best regards,\nThe AutoCare Team`;
+      
+      try {
+        await base44.asServiceRole.integrations.Core.SendEmail({
+          to: user.email,
+          subject: `[AutoCare] ${urgency}: ${serviceName} - ${vehicleName}`,
+          body: body
+        });
+        emailsSent.push({ email: user.email, reminder: serviceName });
+      } catch (error) {
+        console.error('Failed to send email:', error);
+      }
+    }
+  }
+  
+  return { success: true, emailsSent: emailsSent.length, details: emailsSent };
+}

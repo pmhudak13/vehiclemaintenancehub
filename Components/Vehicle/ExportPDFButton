@@ -1,0 +1,164 @@
+import React, { useState } from 'react';
+import { Button } from "@/components/ui/button";
+import { Download, Loader2 } from "lucide-react";
+import jsPDF from 'jspdf';
+import { format } from "date-fns";
+
+const serviceTypeLabels = {
+  oil_change: "Oil Change",
+  tire_rotation: "Tire Rotation",
+  tire_replacement: "Tire Replacement",
+  brake_service: "Brake Service",
+  battery_replacement: "Battery Replacement",
+  transmission_service: "Transmission Service",
+  coolant_flush: "Coolant Flush",
+  air_filter: "Air Filter",
+  spark_plugs: "Spark Plugs",
+  belt_replacement: "Belt Replacement",
+  water_pump: "Water Pump",
+  alternator: "Alternator",
+  starter: "Starter",
+  suspension: "Suspension",
+  alignment: "Alignment",
+  inspection: "Inspection",
+  other: "Other"
+};
+
+export default function ExportPDFButton({ vehicle, logs, userTier }) {
+  const [exporting, setExporting] = useState(false);
+
+  const exportToPDF = async () => {
+    if (userTier !== 'paid') {
+      alert('PDF export is a premium feature. Upgrade to access.');
+      return;
+    }
+
+    setExporting(true);
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.width;
+    const margin = 15;
+    let yPos = 20;
+
+    // Title
+    doc.setFontSize(20);
+    doc.text('Vehicle Maintenance Report', margin, yPos);
+    yPos += 15;
+
+    // Vehicle Info
+    doc.setFontSize(12);
+    doc.setFont(undefined, 'bold');
+    doc.text(`${vehicle.year} ${vehicle.make} ${vehicle.model}`, margin, yPos);
+    yPos += 7;
+    
+    doc.setFont(undefined, 'normal');
+    doc.setFontSize(10);
+    if (vehicle.vin) {
+      doc.text(`VIN: ${vehicle.vin}`, margin, yPos);
+      yPos += 5;
+    }
+    if (vehicle.current_mileage) {
+      doc.text(`Current Mileage: ${vehicle.current_mileage.toLocaleString()} miles`, margin, yPos);
+      yPos += 5;
+    }
+    if (vehicle.purchase_date) {
+      doc.text(`Purchase Date: ${format(new Date(vehicle.purchase_date), 'MMM d, yyyy')}`, margin, yPos);
+      yPos += 5;
+    }
+    if (vehicle.warranty_expiration) {
+      doc.text(`Warranty Expires: ${format(new Date(vehicle.warranty_expiration), 'MMM d, yyyy')}`, margin, yPos);
+      yPos += 5;
+    }
+    
+    yPos += 10;
+
+    // Maintenance History
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.text('Maintenance History', margin, yPos);
+    yPos += 10;
+
+    const sortedLogs = [...logs].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    for (const log of sortedLogs) {
+      // Check if we need a new page
+      if (yPos > 270) {
+        doc.addPage();
+        yPos = 20;
+      }
+
+      doc.setFontSize(11);
+      doc.setFont(undefined, 'bold');
+      const title = log.title || serviceTypeLabels[log.service_type] || log.service_type;
+      doc.text(title, margin, yPos);
+      yPos += 6;
+
+      doc.setFontSize(9);
+      doc.setFont(undefined, 'normal');
+      
+      doc.text(`Date: ${format(new Date(log.date), 'MMM d, yyyy')}`, margin + 5, yPos);
+      yPos += 5;
+      
+      if (log.mileage) {
+        doc.text(`Mileage: ${log.mileage.toLocaleString()} miles`, margin + 5, yPos);
+        yPos += 5;
+      }
+      
+      if (log.cost) {
+        doc.text(`Cost: $${log.cost.toLocaleString()}`, margin + 5, yPos);
+        yPos += 5;
+      }
+      
+      if (log.shop_name) {
+        doc.text(`Shop: ${log.shop_name}`, margin + 5, yPos);
+        yPos += 5;
+      }
+      
+      if (log.description) {
+        const lines = doc.splitTextToSize(log.description, pageWidth - margin * 2 - 5);
+        doc.text(lines, margin + 5, yPos);
+        yPos += lines.length * 5;
+      }
+      
+      yPos += 5;
+    }
+
+    // Footer
+    const totalPages = doc.internal.pages.length - 1;
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.text(
+        `Generated on ${format(new Date(), 'MMM d, yyyy')} - Page ${i} of ${totalPages}`,
+        pageWidth / 2,
+        doc.internal.pageSize.height - 10,
+        { align: 'center' }
+      );
+    }
+
+    doc.save(`${vehicle.year}_${vehicle.make}_${vehicle.model}_maintenance.pdf`);
+    setExporting(false);
+  };
+
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={exportToPDF}
+      disabled={exporting}
+      className="flex items-center gap-2"
+    >
+      {exporting ? (
+        <>
+          <Loader2 className="w-4 h-4 animate-spin" />
+          Exporting...
+        </>
+      ) : (
+        <>
+          <Download className="w-4 h-4" />
+          Export PDF
+        </>
+      )}
+    </Button>
+  );
+}

@@ -1,0 +1,134 @@
+import React from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Bell, Calendar, Gauge, ChevronRight } from "lucide-react";
+import { Link } from "react-router-dom";
+import { createPageUrl } from "@/utils";
+import { format, isPast, isWithinInterval, addDays } from "date-fns";
+
+const serviceTypeLabels = {
+  oil_change: "Oil Change",
+  tire_rotation: "Tire Rotation",
+  tire_replacement: "Tire Replacement",
+  brake_service: "Brake Service",
+  battery_replacement: "Battery",
+  transmission_service: "Transmission",
+  coolant_flush: "Coolant Flush",
+  air_filter: "Air Filter",
+  spark_plugs: "Spark Plugs",
+  belt_replacement: "Belt",
+  inspection: "Inspection",
+  registration: "Registration",
+  insurance: "Insurance",
+  custom: "Custom"
+};
+
+export default function UpcomingReminders({ reminders, vehicles }) {
+  const getVehicle = (vehicleId) => vehicles?.find(v => v.id === vehicleId);
+  
+  const getUrgency = (reminder) => {
+    if (!reminder.due_date) return "normal";
+    const dueDate = new Date(reminder.due_date);
+    if (isPast(dueDate)) return "overdue";
+    if (isWithinInterval(dueDate, { start: new Date(), end: addDays(new Date(), 7) })) return "soon";
+    return "normal";
+  };
+
+  const sortedReminders = [...reminders]
+    .filter(r => r.status === "pending")
+    .sort((a, b) => {
+      if (!a.due_date) return 1;
+      if (!b.due_date) return -1;
+      return new Date(a.due_date) - new Date(b.due_date);
+    })
+    .slice(0, 5);
+
+  if (sortedReminders.length === 0) {
+    return (
+      <Card className="border-0 shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+            <Bell className="w-5 h-5 text-blue-600" />
+            Upcoming Reminders
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8">
+            <div className="w-12 h-12 rounded-full bg-slate-100 mx-auto flex items-center justify-center mb-3">
+              <Bell className="w-6 h-6 text-slate-400" />
+            </div>
+            <p className="text-slate-600 text-sm">No upcoming reminders</p>
+            <p className="text-slate-400 text-xs mt-1">Add reminders to stay on top of maintenance</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="border-0 shadow-sm">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+          <Bell className="w-5 h-5 text-blue-600" />
+          Upcoming Reminders
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {sortedReminders.map((reminder) => {
+          const vehicle = getVehicle(reminder.vehicle_id);
+          const urgency = getUrgency(reminder);
+          
+          return (
+            <Link 
+              key={reminder.id} 
+              to={createPageUrl(`VehicleDetail?id=${reminder.vehicle_id}`)}
+              className="block"
+            >
+              <div className={`p-3 rounded-xl border transition-all hover:shadow-md ${
+                urgency === "overdue" ? "border-red-200 bg-red-50" :
+                urgency === "soon" ? "border-orange-200 bg-orange-50" :
+                "border-slate-100 bg-slate-50 hover:bg-white"
+              }`}>
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-slate-900">
+                        {reminder.custom_title || serviceTypeLabels[reminder.service_type]}
+                      </span>
+                      {urgency === "overdue" && (
+                        <Badge variant="destructive" className="text-xs">Overdue</Badge>
+                      )}
+                      {urgency === "soon" && (
+                        <Badge className="bg-orange-100 text-orange-700 text-xs">Due Soon</Badge>
+                      )}
+                    </div>
+                    {vehicle && (
+                      <p className="text-sm text-slate-500 mt-0.5">
+                        {vehicle.year} {vehicle.make} {vehicle.model}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-3 mt-2 text-xs text-slate-500">
+                      {reminder.due_date && (
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-3 h-3" />
+                          {format(new Date(reminder.due_date), "MMM d, yyyy")}
+                        </span>
+                      )}
+                      {reminder.due_mileage && (
+                        <span className="flex items-center gap-1">
+                          <Gauge className="w-3 h-3" />
+                          {reminder.due_mileage.toLocaleString()} mi
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-slate-400" />
+                </div>
+              </div>
+            </Link>
+          );
+        })}
+      </CardContent>
+    </Card>
+  );
+}
